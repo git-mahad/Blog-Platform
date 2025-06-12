@@ -23,18 +23,29 @@
 - DELETE /:id - Delete a post
 
 ## Technical Features:
-Input validation using class-validator
-Global validation pipe with whitelist and transform options
-CORS enabled for frontend integration
-MySQL database integration
-TypeORM for database operations
-Pagination support
-Error handling for not found cases
-Security Features:
-Input validation and sanitization
-CORS protection
-Type safety with TypeScript
-DTO validation
+- Input validation using class-validator
+- Global validation pipe with whitelist and transform options
+- CORS enabled for frontend integration
+- MySQL database integration
+- TypeORM for database operations
+- Error handling for not found cases
+- CORS protection
+- DTO validation
+
+## Database:
+- MySQL database
+- TypeORM for ORM
+- Automatic schema synchronization
+
+## Clone the Project
+
+``` bash
+$ git clone [https://github.com/git-mahad/Blog-Platform.git](https://github.com/git-mahad/Blog-Platform.git)
+```
+## Navigate into Project Folder
+``` bash
+$ cd Blog-Platform
+```
 
 ## Project setup
 
