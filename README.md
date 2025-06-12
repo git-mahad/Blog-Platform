@@ -1,4 +1,40 @@
 # Blog Platform
+## Project Structure:
+- Built using NestJS framework
+- Uses TypeORM for database operations with MySQL
+- Follows a modular architecture with separate modules for posts and comments
+- Uses DTOs (Data Transfer Objects) for request validation
+
+## Main Features:
+- Blog post management system with CRUD operations
+- Pagination support for post listings
+- Filtering posts by published status
+- Search posts by author
+- Search posts by tags
+
+## API Endpoints (/posts):
+- POST / - Create a new post
+- GET / - List all posts with pagination
+- GET /author/:author - Find posts by author
+- GET /tag/:tag - Find posts by tag
+- GET /slug/:slug - Find post by slug
+- GET /:id - Get a specific post
+- PATCH /:id - Update a post
+- DELETE /:id - Delete a post
+
+## Technical Features:
+Input validation using class-validator
+Global validation pipe with whitelist and transform options
+CORS enabled for frontend integration
+MySQL database integration
+TypeORM for database operations
+Pagination support
+Error handling for not found cases
+Security Features:
+Input validation and sanitization
+CORS protection
+Type safety with TypeScript
+DTO validation
 
 ## Project setup
 
