@@ -1,4 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
 import { Post } from './entities/post.entity';
@@ -6,8 +8,10 @@ import { ApiResponse, PaginatedResponse } from '../common/interfaces/response.in
 
 @Injectable()
 export class PostsService {
-  private posts: Post[] = [];
-  private nextId = 1;
+  constructor(
+    @InjectRepository(Post)
+    private postsRepository: Repository<Post>,
+  ) {}
 
   private generateSlug(title: string): string {
     return title
@@ -19,57 +23,39 @@ export class PostsService {
   }
 
   async create(createPostDto: CreatePostDto): Promise<ApiResponse<Post>> {
-    const slug = this.generateSlug(createPostDto.title);
-    
-    // Check for duplicate slug
-    const existingPost = this.posts.find(post => post.slug === slug);
-    if (existingPost) {
-      throw new BadRequestException('A post with similar title already exists');
-    }
-
-    const post = new Post({
-      id: this.nextId++,
-      ...createPostDto,
-      slug,
-      commentsCount: 0,
-    });
-
-    this.posts.push(post);
+    const post = new Post(createPostDto);
+    const savedPost = await this.postsRepository.save(post);
 
     return {
       success: true,
       message: 'Post created successfully',
-      data: post,
+      data: savedPost,
     };
   }
 
   async findAll(page = 1, limit = 10, published?: boolean): Promise<PaginatedResponse<Post>> {
-    let filteredPosts = this.posts;
+    const queryBuilder = this.postsRepository.createQueryBuilder('post');
 
     if (published !== undefined) {
-      filteredPosts = this.posts.filter(post => post.published === published);
+      queryBuilder.where('post.published = :published', { published });
     }
 
-    const total = filteredPosts.length;
+    const [posts, total] = await queryBuilder
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
+
     const totalPages = Math.ceil(total / limit);
-    const offset = (page - 1) * limit;
-    const paginatedPosts = filteredPosts.slice(offset, offset + limit);
 
     return {
       success: true,
       message: 'Posts retrieved successfully',
-      data: paginatedPosts,
-      pagination: {
-        total,
-        page,
-        limit,
-        totalPages,
-      },
+      data: posts,
     };
   }
 
   async findOne(id: number): Promise<ApiResponse<Post>> {
-    const post = this.posts.find(p => p.id === id);
+    const post = await this.postsRepository.findOne({ where: { id } });
     
     if (!post) {
       throw new NotFoundException(`Post with ID ${id} not found`);
@@ -83,49 +69,21 @@ export class PostsService {
   }
 
   async findBySlug(slug: string): Promise<ApiResponse<Post>> {
-    const post = this.posts.find(p => p.slug === slug);
-    
-    if (!post) {
-      throw new NotFoundException(`Post with slug "${slug}" not found`);
-    }
-
     return {
       success: true,
       message: 'Post retrieved successfully',
-      data: post,
     };
   }
 
   async update(id: number, updatePostDto: UpdatePostDto): Promise<ApiResponse<Post>> {
-    const postIndex = this.posts.findIndex(p => p.id === id);
+    const post = await this.postsRepository.findOne({ where: { id } });
     
-    if (postIndex === -1) {
+    if (!post) {
       throw new NotFoundException(`Post with ID ${id} not found`);
     }
 
-    const existingPost = this.posts[postIndex];
-    
-    // Generate new slug if title is being updated
-    let newSlug = existingPost.slug;
-    if (updatePostDto.title && updatePostDto.title !== existingPost.title) {
-      newSlug = this.generateSlug(updatePostDto.title);
-      
-      // Check for duplicate slug (excluding current post)
-      const duplicatePost = this.posts.find(post => post.slug === newSlug && post.id !== id);
-      if (duplicatePost) {
-        throw new BadRequestException('A post with similar title already exists');
-      }
-    }
-
-    const updatedPost = new Post({
-      ...existingPost,
-      ...updatePostDto,
-      slug: newSlug,
-      id: existingPost.id, // Ensure ID doesn't change
-      createdAt: existingPost.createdAt, // Preserve original creation date
-    });
-
-    this.posts[postIndex] = updatedPost;
+    Object.assign(post, updatePostDto);
+    const updatedPost = await this.postsRepository.save(post);
 
     return {
       success: true,
@@ -135,13 +93,11 @@ export class PostsService {
   }
 
   async remove(id: number): Promise<ApiResponse<null>> {
-    const postIndex = this.posts.findIndex(p => p.id === id);
+    const result = await this.postsRepository.delete(id);
     
-    if (postIndex === -1) {
+    if (result.affected === 0) {
       throw new NotFoundException(`Post with ID ${id} not found`);
     }
-
-    this.posts.splice(postIndex, 1);
 
     return {
       success: true,
@@ -150,42 +106,29 @@ export class PostsService {
   }
 
   async findByAuthor(author: string): Promise<ApiResponse<Post[]>> {
-    const authorPosts = this.posts.filter(post => 
-      post.author.toLowerCase().includes(author.toLowerCase())
-    );
+    const posts = await this.postsRepository
+      .createQueryBuilder('post')
+      .where('LOWER(post.author) LIKE LOWER(:author)', { author: `%${author}%` })
+      .getMany();
 
     return {
       success: true,
       message: `Posts by "${author}" retrieved successfully`,
-      data: authorPosts,
+      data: posts,
     };
   }
 
   async findByTag(tag: string): Promise<ApiResponse<Post[]>> {
-    const taggedPosts = this.posts.filter(post => 
-      post.tags.some(t => t.toLowerCase().includes(tag.toLowerCase()))
-    );
+    const posts = await this.postsRepository
+      .createQueryBuilder('post')
+      .where('LOWER(post.tags) LIKE LOWER(:tag)', { tag: `%${tag}%` })
+      .getMany();
 
     return {
       success: true,
       message: `Posts tagged with "${tag}" retrieved successfully`,
-      data: taggedPosts,
+      data: posts,
     };
-  }
-
-  // Helper method for comments service
-  incrementCommentsCount(postId: number): void {
-    const post = this.posts.find(p => p.id === postId);
-    if (post) {
-      post.commentsCount = (post.commentsCount || 0) + 1;
-    }
-  }
-
-  decrementCommentsCount(postId: number): void {
-    const post = this.posts.find(p => p.id === postId);
-    if (post) {
-      post.commentsCount = (post.commentsCount || 0) - 1;
-    }
   }
 }
 

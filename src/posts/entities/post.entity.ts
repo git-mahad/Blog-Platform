@@ -1,19 +1,27 @@
+import {Entity, PrimaryGeneratedColumn, Column} from 'typeorm'
+
+@Entity()
 export class Post {
+  @PrimaryGeneratedColumn()
   id: number;
+
+  @Column()
   title: string;
+
+  @Column()
   content: string;
+
+  @Column()
   author: string;
-  slug: string;
+
+  @Column() 
   published: boolean;
+
+  @Column('simple-array')
   tags: string[];
-  createdAt: Date;
-  updatedAt: Date;
-  commentsCount?: number;
 
   constructor(partial: Partial<Post>) {
     Object.assign(this, partial);
-    this.createdAt = this.createdAt || new Date();
-    this.updatedAt = new Date();
     this.published = this.published ?? false;
     this.tags = this.tags || [];
   }

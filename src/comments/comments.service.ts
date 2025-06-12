@@ -20,14 +20,12 @@ export class CommentsService {
       throw new BadRequestException('Post not found');
     }
 
-    // If parentId is provided, verify that the parent comment exists
     if (createCommentDto.parentId) {
       const parentComment = this.comments.find(c => c.id === createCommentDto.parentId);
       if (!parentComment) {
         throw new BadRequestException('Parent comment not found');
       }
       
-      // Ensure parent comment belongs to the same post
       if (parentComment.postId !== createCommentDto.postId) {
         throw new BadRequestException('Parent comment must belong to the same post');
       }
@@ -40,9 +38,6 @@ export class CommentsService {
 
     this.comments.push(comment);
     
-    // Increment comment count for the post
-    this.postsService.incrementCommentsCount(createCommentDto.postId);
-
     return {
       success: true,
       message: 'Comment created successfully',
@@ -66,17 +61,10 @@ export class CommentsService {
       success: true,
       message: 'Comments retrieved successfully',
       data: paginatedComments,
-      pagination: {
-        total,
-        page,
-        limit,
-        totalPages,
-      },
     };
   }
 
   async findByPost(postId: number): Promise<ApiResponse<Comment[]>> {
-    // Verify that the post exists
     try {
       await this.postsService.findOne(postId);
     } catch (error) {
@@ -85,7 +73,6 @@ export class CommentsService {
 
     const postComments = this.comments.filter(comment => comment.postId === postId);
     
-    // Organize comments into hierarchical structure
     const topLevelComments = postComments.filter(comment => !comment.parentId);
     const nestedComments = this.buildCommentTree(topLevelComments, postComments);
 
@@ -131,10 +118,10 @@ export class CommentsService {
     const updatedComment = new Comment({
       ...existingComment,
       ...updateCommentDto,
-      id: existingComment.id, // Ensure ID doesn't change
-      postId: existingComment.postId, // Ensure postId doesn't change
-      parentId: existingComment.parentId, // Ensure parentId doesn't change
-      createdAt: existingComment.createdAt, // Preserve original creation date
+      id: existingComment.id,
+      postId: existingComment.postId,
+      parentId: existingComment.parentId,
+      createdAt: existingComment.createdAt,
     });
 
     this.comments[commentIndex] = updatedComment;
@@ -154,12 +141,7 @@ export class CommentsService {
     }
 
     const comment = this.comments[commentIndex];
-    
-    // Remove the comment and all its replies
     this.removeCommentAndReplies(id);
-    
-    // Decrement comment count for the post
-    this.postsService.decrementCommentsCount(comment.postId);
 
     return {
       success: true,
@@ -168,15 +150,12 @@ export class CommentsService {
   }
 
   private removeCommentAndReplies(commentId: number): void {
-    // Find all replies to this comment
+
     const replies = this.comments.filter(c => c.parentId === commentId);
-    
-    // Recursively remove all replies
     replies.forEach(reply => {
       this.removeCommentAndReplies(reply.id);
     });
     
-    // Remove the comment itself
     const commentIndex = this.comments.findIndex(c => c.id === commentId);
     if (commentIndex !== -1) {
       this.comments.splice(commentIndex, 1);
