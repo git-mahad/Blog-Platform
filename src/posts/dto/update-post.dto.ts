@@ -1,7 +1,6 @@
+import { IsString, IsOptional, IsBoolean, IsArray, MaxLength, MinLength } from 'class-validator';
 
-import { IsString, IsNotEmpty, IsOptional, IsBoolean, IsArray, MaxLength, MinLength, isNotEmpty } from 'class-validator';
-
-export class UpdatePostDto{
+export class UpdatePostDto {
   @IsOptional()
   @IsString()
   @MinLength(3)
@@ -19,4 +18,12 @@ export class UpdatePostDto{
   @MaxLength(100)
   author?: string;
 
+  @IsOptional()
+  @IsBoolean()
+  published?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  tags?: string[];
 }

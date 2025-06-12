@@ -15,8 +15,8 @@ async function bootstrap() {
 
   app.enableCors() // enablecore for frontend integration
 
-  await app.listen(3000);
+  await app.listen(4001);
 
-  console.log('Blog plateform api is ruuning on 3000 port')
+  console.log('Blog plateform api is ruuning on 4001 port')
 }
 bootstrap();
