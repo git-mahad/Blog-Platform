@@ -52,7 +52,15 @@ $ cd Blog-Platform
 ```bash
 $ npm install
 ```
-
+## create .env file in Root folder
+### NOTE: Don't copy paste write your own cridential
+``` bash
+DB_HOST=localhost
+DB_PORT=3306
+DB_USERNAME=db_username
+DB_PASSWORD=db_password
+DB_NAME=db_name
+```
 ## Compile and run the project
 
 ```bash
