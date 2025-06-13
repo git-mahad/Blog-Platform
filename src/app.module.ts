@@ -19,6 +19,7 @@ import { Post } from './posts/entities/post.entity';
       autoLoadEntities: true,
       synchronize: true,
     }),
+    
     PostsModule, 
     CommentModule
   ],

@@ -25,6 +25,7 @@ export class CommentsController {
 
   @Get()
   findAll(
+    // parseintpipe change the type from string to number
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
     @Query('approved') approved?: string,
