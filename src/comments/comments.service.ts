@@ -123,7 +123,7 @@ export class CommentsService {
       parentId: existingComment.parentId,
       createdAt: existingComment.createdAt,
     });
-
+    
     this.comments[commentIndex] = updatedComment;
 
     return {
