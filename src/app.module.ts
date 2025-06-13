@@ -10,15 +10,15 @@ import { Post } from './posts/entities/post.entity';
   imports: [
     TypeOrmModule.forRoot({
       type: 'mysql',
-      host: 'localhost',
-      port: 3306,
-      username: 'root',
-      password: '12345',
-      database: 'blog_db',
+      host: process.env.DB_HOST,
+      port: Number(process.env.DB_PORT),
+      username: process.env.DB_USERNAME,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_NAME,
       entities: [Post],
       autoLoadEntities: true,
       synchronize: true,
-    }),    
+    }),
     PostsModule, 
     CommentModule
   ],
