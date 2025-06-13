@@ -1,4 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { UpdateCommentDto } from './dto/update-comment.dto';
 import { Comment } from './entities/comment.entity';
@@ -7,13 +9,13 @@ import { ApiResponse, PaginatedResponse } from '../common/interfaces/response.in
 
 @Injectable()
 export class CommentsService {
-  private comments: Comment[] = [];
-  private nextId = 1;
-
-  constructor(private readonly postsService: PostsService) {}
+  constructor(
+    @InjectRepository(Comment)
+    private commentsRepository: Repository<Comment>,
+    private readonly postsService: PostsService,
+  ) {}
 
   async create(createCommentDto: CreateCommentDto): Promise<ApiResponse<Comment>> {
-    // Verify that the post exists
     try {
       await this.postsService.findOne(createCommentDto.postId);
     } catch (error) {
@@ -21,46 +23,54 @@ export class CommentsService {
     }
 
     if (createCommentDto.parentId) {
-      const parentComment = this.comments.find(c => c.id === createCommentDto.parentId);
+      const parentComment = await this.commentsRepository.findOne({ where: { id: createCommentDto.parentId } });
       if (!parentComment) {
         throw new BadRequestException('Parent comment not found');
       }
-      
+
       if (parentComment.postId !== createCommentDto.postId) {
         throw new BadRequestException('Parent comment must belong to the same post');
       }
     }
 
-    const comment = new Comment({
-      id: this.nextId++,
+    const comment = this.commentsRepository.create({
       ...createCommentDto,
+      approved: true,
     });
 
-    this.comments.push(comment);
-    
+    const savedComment = await this.commentsRepository.save(comment);
+
     return {
       success: true,
       message: 'Comment created successfully',
-      data: comment,
+      data: savedComment,
     };
   }
 
   async findAll(page = 1, limit = 10, approved?: boolean): Promise<PaginatedResponse<Comment>> {
-    let filteredComments = this.comments;
+    const queryBuilder = this.commentsRepository.createQueryBuilder('comment');
 
     if (approved !== undefined) {
-      filteredComments = this.comments.filter(comment => comment.approved === approved);
+      queryBuilder.where('comment.approved = :approved', { approved });
     }
 
-    const total = filteredComments.length;
+    const [comments, total] = await queryBuilder
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
+
     const totalPages = Math.ceil(total / limit);
-    const offset = (page - 1) * limit;
-    const paginatedComments = filteredComments.slice(offset, offset + limit);
 
     return {
       success: true,
       message: 'Comments retrieved successfully',
-      data: paginatedComments,
+      data: comments,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages
+      }
     };
   }
 
@@ -71,10 +81,13 @@ export class CommentsService {
       throw new BadRequestException('Post not found');
     }
 
-    const postComments = this.comments.filter(comment => comment.postId === postId);
-    
-    const topLevelComments = postComments.filter(comment => !comment.parentId);
-    const nestedComments = this.buildCommentTree(topLevelComments, postComments);
+    const comments = await this.commentsRepository.find({
+      where: { postId },
+      order: { createdAt: 'DESC' }
+    });
+
+    const topLevelComments = comments.filter(comment => !comment.parentId);
+    const nestedComments = this.buildCommentTree(topLevelComments, comments);
 
     return {
       success: true,
@@ -94,8 +107,7 @@ export class CommentsService {
   }
 
   async findOne(id: number): Promise<ApiResponse<Comment>> {
-    const comment = this.comments.find(c => c.id === id);
-    
+    const comment = await this.commentsRepository.findOne({ where: { id } });
     if (!comment) {
       throw new NotFoundException(`Comment with ID ${id} not found`);
     }
@@ -108,23 +120,13 @@ export class CommentsService {
   }
 
   async update(id: number, updateCommentDto: UpdateCommentDto): Promise<ApiResponse<Comment>> {
-    const commentIndex = this.comments.findIndex(c => c.id === id);
-    
-    if (commentIndex === -1) {
+    const comment = await this.commentsRepository.findOne({ where: { id } });
+    if (!comment) {
       throw new NotFoundException(`Comment with ID ${id} not found`);
     }
 
-    const existingComment = this.comments[commentIndex];
-    const updatedComment = new Comment({
-      ...existingComment,
-      ...updateCommentDto,
-      id: existingComment.id,
-      postId: existingComment.postId,
-      parentId: existingComment.parentId,
-      createdAt: existingComment.createdAt,
-    });
-    
-    this.comments[commentIndex] = updatedComment;
+    Object.assign(comment, updateCommentDto);
+    const updatedComment = await this.commentsRepository.save(comment);
 
     return {
       success: true,
@@ -134,14 +136,10 @@ export class CommentsService {
   }
 
   async remove(id: number): Promise<ApiResponse<null>> {
-    const commentIndex = this.comments.findIndex(c => c.id === id);
-    
-    if (commentIndex === -1) {
+    const result = await this.commentsRepository.delete(id);
+    if (result.affected === 0) {
       throw new NotFoundException(`Comment with ID ${id} not found`);
     }
-
-    const comment = this.comments[commentIndex];
-    this.removeCommentAndReplies(id);
 
     return {
       success: true,
@@ -149,28 +147,16 @@ export class CommentsService {
     };
   }
 
-  private removeCommentAndReplies(commentId: number): void {
-
-    const replies = this.comments.filter(c => c.parentId === commentId);
-    replies.forEach(reply => {
-      this.removeCommentAndReplies(reply.id);
-    });
-    
-    const commentIndex = this.comments.findIndex(c => c.id === commentId);
-    if (commentIndex !== -1) {
-      this.comments.splice(commentIndex, 1);
-    }
-  }
-
   async findByAuthor(author: string): Promise<ApiResponse<Comment[]>> {
-    const authorComments = this.comments.filter(comment => 
-      comment.author.toLowerCase().includes(author.toLowerCase())
-    );
+    const comments = await this.commentsRepository
+      .createQueryBuilder('comment')
+      .where('LOWER(comment.author) LIKE LOWER(:author)', { author: `%${author}%` })
+      .getMany();
 
     return {
       success: true,
       message: `Comments by "${author}" retrieved successfully`,
-      data: authorComments,
+      data: comments,
     };
   }
 

@@ -4,7 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PostsModule } from './posts/posts.module';
-import { CommentModule } from './comments/comments.module';
+import { CommentsModule } from './comments/comments.module';
 import { Post } from './posts/entities/post.entity';
 
 @Module({
@@ -26,7 +26,7 @@ import { Post } from './posts/entities/post.entity';
       }),
     }),
     PostsModule,
-    CommentModule,
+    CommentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

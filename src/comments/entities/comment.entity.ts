@@ -1,19 +1,38 @@
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+
+@Entity()
 export class Comment {
+  @PrimaryGeneratedColumn()
   id: number;
+
+  @Column()
   content: string;
+
+  @Column()
   author: string;
+
+  @Column()
   email: string;
+
+  @Column()
   postId: number;
-  parentId?: number; // For nested comments
+
+  @Column({ nullable: true })
+  parentId?: number;
+
+  @Column({ default: true })
   approved: boolean;
+
+  @CreateDateColumn()
   createdAt: Date;
+
+  @UpdateDateColumn()
   updatedAt: Date;
+
   replies?: Comment[];
 
   constructor(partial: Partial<Comment>) {
     Object.assign(this, partial);
-    this.createdAt = this.createdAt || new Date();
-    this.updatedAt = new Date();
     this.approved = this.approved ?? true;
     this.replies = [];
   }

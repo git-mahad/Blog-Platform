@@ -51,6 +51,12 @@ export class PostsService {
       success: true,
       message: 'Posts retrieved successfully',
       data: posts,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages
+      }
     };
   }
 
